@@ -164,7 +164,7 @@ void frontSensor() {
   frontDistance = (340 * frontDistance/2)/10000;
   delay(10);
   pulseIn(frontEcho, LOW);
-}
+} 
 
 
 
