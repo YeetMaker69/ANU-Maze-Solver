@@ -1,0 +1,363 @@
+//Define constants
+int frontDistance = 0;
+int leftDistance = 0;
+int rightDistance = 0;
+
+//Declares the variable for distance to move forward from dead end (cm)
+const int deadEndOut = 10;
+//U-Turn counter
+int uTurns = 0;
+//time the robot spins for while cornering (milliseconds)
+int spinDelay = 500;
+
+//Sets speed for motors
+int leftSpeed = 0;
+int rightSpeed = 0;
+
+//Pins for H Bridge
+const int motorLeft = ; //pin 1 on H Bridge. Must be analog
+const int motorRight = ; //pin 9 on H Bridge. Must be analog
+const int left1 = ; //pin 2 on H Bridge
+const int left2 = ; //pin 7 on H Bridge
+const int right1 = ; //pin 10 on H Bridge
+const int right2 = ; //pin 15 on H Bridge
+
+// Right Ultrasonic sensor pins
+const int rightTrig = ;
+const int rightEcho = ; 
+// Left Ultrasonic sensor pins
+const int leftTrig = ;
+const int leftEcho = ; 
+// Front Ultrasonic sensor pins
+const int frontTrig = ;
+const int frontEcho = ; 
+
+
+void setup() {
+  Serial.begin(9600);
+  
+  //Pinmodes
+  //Pins for the H-bridge
+  pinMode(motorLeft, OUTPUT);
+  pinMode(motorRight, OUTPUT);
+  pinMode(left1, OUTPUT);
+  pinMode(left2, OUTPUT);
+  pinMode(right1, OUTPUT);
+  pinMode(right2, OUTPUT);
+  
+  //Pins for Ultrasonic Sensors
+  pinMode(rightEcho, INPUT);
+  pinMode(rightTrig, OUTPUT);
+  pinMode(leftEcho, INPUT);
+  pinMode(leftTrig, OUTPUT);
+  pinMode(frontEcho, INPUT);
+  pinMode(frontTrig, OUTPUT);
+  
+}
+
+
+void loop() { 
+  // taking sensor data
+  frontSensor();
+  leftSensor();
+  rightSensor();
+  
+  //setting speed based on front sensor distance
+  if (frontDistance > 10) {
+    fullSpeed();
+  }
+  else if (frontDistance < 10){
+    halfSpeed();
+  }
+  else if (frontDistance < 4){
+    noSpeed();
+  }
+  
+  //checking if Motorspeed is 0
+  if (leftSpeed == 0 && rightSpeed == 0) {
+    frontSensor();
+    leftSensor();
+    rightSensor();
+    //logic for tuning left or right or 180
+    
+    //left is further than or the same as right
+    if (leftDistance >= rightDistance) {
+      
+      //Dead end check
+      if (leftDistance - rightDistance > 5) {
+        
+        //not a dead end, checking it is a T Junction
+        if (rightDistance - frontDistance >= 3) {
+          turnLeft();
+        }
+        
+        //checking its a left turn only
+        else if (rightDistance - frontDistance < 3) {
+          turnLeft();
+        }
+        
+      }
+      //Dead End
+      else if (leftDistance-rightDistance <= 5) {
+        turn180();
+      }
+    }
+    
+    //Right is Further than left
+    if (rightDistance > leftDistance) {
+      
+      //Dead End check
+      if (rightDistance - leftDistance > 5){
+        
+        //Checking it is only a right turn
+        if (leftDistance - frontDistance < 3){
+            turnRight();
+        }
+
+        //Confirming it is a T junction
+        else if (leftDistance - frontDistance >= 3){
+            turnLeft();
+        }
+      }
+      
+      //Dead End
+      else if (rightDistance - leftDistance <= 5){
+        turn180();
+      }
+    }
+  }
+  
+  
+  //adjust left and right to not hit walls
+  else if (rightDistance > leftDistance) {
+    adjustRight();
+  }
+  
+  else if (rightDistance < leftDistance) {
+    adjustLeft();
+  }
+    
+}
+
+//Sets motors to Fullspeed, or full chosen speed
+void fullSpeed() {
+  leftSpeed = 255;
+  rightSpeed = 255;
+  
+  //sets motors to full speed by allowing the pwm to be 125/255
+  analogWrite(motorLeft, leftSpeed);
+  analogWrite(motorRight, rightSpeed);
+  
+  //Sets the direction the motorspins. Change these to get motor to spin correct way.
+  digitalWrite(left1, HIGH);
+  digitalWrite(left2, LOW);
+  digitalWrite(right1, HIGH);
+  digitalWrite(right2, LOW);
+}
+
+//Sets motors to Half Speed, or half of chosen full speed
+void halfSpeed() {
+  leftSpeed = 125;
+  rightSpeed = 125;
+  
+  //sets motors to half speed by allowing the pwm to be 125/255
+  analogWrite(motorLeft, leftSpeed);
+  analogWrite(motorRight, rightSpeed);
+  
+  //Sets the direction the motorspins. Change these to get motor to spin correct way.
+  digitalWrite(left1, HIGH);
+  digitalWrite(left2, LOW);
+  digitalWrite(right1, HIGH);
+  digitalWrite(right2, LOW);
+}
+
+//Set Motors to stop
+void noSpeed() {
+  leftSpeed = 0;
+  rightSpeed = 0;
+  
+  //sets motors to zero speed by allowing the pwm to be 0/255
+  analogWrite(motorLeft, leftSpeed);
+  analogWrite(motorRight, rightSpeed);
+  
+  //Sets the direction the motorspins. Change these to get motor to spin correct way.
+  digitalWrite(left1, HIGH);
+  digitalWrite(left2, LOW);
+  digitalWrite(right1, HIGH);
+  digitalWrite(right2, LOW);
+}
+
+//Adjust the robot left while moving forward
+void adjustLeft() {
+  //Lowers the speed of the left wheel to turn the robot left
+  leftSpeed = leftSpeed - 5;
+  //To turn the robot left and to keep the speed up
+  rightSpeed = rightSpeed + 5;
+  //To apply the new motorspeed
+  analogWrite(motorLeft, leftSpeed);
+  analogWrite(motorRight, rightSpeed);
+}
+
+//Adjust the robot right while moving forward
+void adjustRight() {
+  //To turn the robot right and to keep the speed up
+  leftSpeed = leftSpeed + 5;
+  //Lowers the speed of the right wheel to turn the robot right
+  rightSpeed = rightSpeed - 5;
+  //To apply the new motorspeed
+  analogWrite(motorLeft, leftSpeed);
+  analogWrite(motorRight, rightSpeed);
+}
+
+//Get left sensor value
+void leftSensor() {
+  digitalWrite(leftTrig, HIGH);
+  delay(10);
+  digitalWrite(leftTrig, LOW);
+  leftDistance = pulseIn(leftEcho, HIGH);
+  if (leftDistance > 11765){
+    leftDistance = 11765;
+  }
+
+  leftDistance = (340 * leftDistance/2)/10000;
+  delay(10);
+  pulseIn(leftEcho, LOW);
+}
+
+//Get right sensor value
+void rightSensor() {
+  digitalWrite(rightTrig, HIGH);
+  delay(10);
+  digitalWrite(rightTrig, LOW);
+  rightDistance = pulseIn(rightEcho, HIGH);
+  if (rightDistance > 11765){
+    rightDistance = 11765;
+  }
+  rightDistance = (340 * rightDistance/2)/10000;
+  delay(10);
+  pulseIn(rightEcho, LOW);
+}
+
+//Get front sensor value
+void frontSensor() {
+  digitalWrite(frontTrig, HIGH);
+  delay(10);
+  digitalWrite(frontTrig, LOW);
+  frontDistance = pulseIn(frontEcho, HIGH);
+  if (frontDistance > 11765){
+    frontDistance = 11765;
+  }
+  frontDistance = (340 * frontDistance/2)/10000;
+  delay(10);
+  pulseIn(frontEcho, LOW);
+}
+
+//Turn left while not moving forward
+void turnLeft() {
+  frontSensor();
+  leftSensor();
+  target = leftDistance;
+  //spins and checks if it is clear to go forward
+  while (frontDistance < target){
+    spinLeft();
+    delay(spinDelay);
+    noSpeed();
+    frontSensor();
+  }
+  //resets uturn counter
+  uTurns = 0;
+  //get the robot moving before it tries to adjust
+  if (frontDistance > 10) {
+    fullSpeed();
+  }
+  else if (frontDistance < 10){
+    halfSpeed();
+  }
+  else{
+    noSpeed();
+  }
+}
+
+//Turn right while not moving forward
+void turnRight(){
+  frontSensor();
+  rightSensor();
+  target = rightDistance;
+  //spins and checks if it is clear to go forward
+  while (frontDistance < target){
+    spinRight();
+    delay(spinDelay);
+    noSpeed();
+    frontSensor();
+  }
+  //resets uturn counter
+  uTurns = 0;
+  //get the robot moving before it tries to adjust
+  if (frontDistance > 10) {
+    fullSpeed();
+  }
+  else if (frontDistance < 10){
+    halfSpeed();
+  }
+  else{
+    noSpeed();
+  }
+
+}
+
+//Turn 180 at a deadend
+void turn180(){
+  /* TURN TILL FRONT >= DEADENDOUT, OR STORE LEFT AND RIGHT VALUES AND SPIN TILL THEY ARE WITHIN 2 CM OF THE STORED ORIGINAL VALUE BEFORE TURNING USE UTURN COUNTER */
+  frontSensor();
+  while (frontDistance < deadEndOut) {
+    spinLeft();
+    delay(spinDelay);
+    noSpeed();
+    frontSensor();
+  }
+  //counts the amount of 180's made incase of dead end alley with escape along the side
+  uTurns = uTurns + 1;
+
+  //get the robot moving before it tries to adjust
+  if (frontDistance > 10) {
+    fullSpeed();
+  }
+  else if (frontDistance < 10){
+    halfSpeed();
+  }
+  else{
+    noSpeed();
+  }
+}
+
+//
+void spinLeft(){
+  //UP SPEED HERE OR RAISE THE DELAY IF SPINNING IS TOO SLOW
+  leftSpeed = 50;
+  rightSpeed = 50;
+  
+  analogWrite(motorLeft, leftSpeed);
+  analogWrite(motorRight, rightSpeed);
+  
+  //Sets the direction the motorspins. Change these to get motor to spin correct way.
+  digitalWrite(left1, LOW);
+  digitalWrite(left2, HIGH);
+  digitalWrite(right1, HIGH);
+  digitalWrite(right2, LOW);
+}
+
+//
+void spinRight(){
+  //UP SPEED HERE OR RAISE THE DELAY IF SPINNING IS TOO SLOW
+  leftSpeed = 50;
+  rightSpeed = 50;
+  
+  analogWrite(motorLeft, leftSpeed);
+  analogWrite(motorRight, rightSpeed);
+  
+  //Sets the direction the motorspins. Change these to get motor to spin correct way.
+  digitalWrite(left1, HIGH);
+  digitalWrite(left2, LOW);
+  digitalWrite(right1, LOW);
+  digitalWrite(right2, HIGH);
+}
